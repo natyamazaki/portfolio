@@ -1,0 +1,3 @@
+### IMPORTANDO BIBLIOTECAS
+from typing import Concatenate
+import pandas as pd
