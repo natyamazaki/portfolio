@@ -1,3 +1,95 @@
-### IMPORTANDO BIBLIOTECAS
-from typing import Concatenate
+# Importando bibliotecas
+import datetime
+import matplotlib
+import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
+import scipy.stats as scs
+
+# Carregar os datasets
+df_controlgroup = pd.read_csv('dataset_control_group.csv', delimiter=';')
+df_testgroup = pd.read_csv('dataset_test_group.csv', delimiter=';')
+
+# Formatar o dataset
+# Renomear as colunas
+renomear_colunas = {
+    'Campaign Name': 'campaign_name',
+    'Date': 'date',
+    'Spend [USD]': 'spend',
+    '# of Impressions': 'impressions',
+    'Reach': 'reach',
+    '# of Website Clicks': 'clicks',
+    '# of Searches': 'searches',
+    '# of View Content': 'view',
+    '# of Add to Cart': 'cart',
+    '# of Purchase': 'purchase'
+}
+df_controlgroup = df_controlgroup.rename(columns=renomear_colunas)
+df_testgroup = df_testgroup.rename(columns=renomear_colunas)
+
+# Formatar coluna date para data
+df_controlgroup['date'] = pd.to_datetime(df_controlgroup['date'], format='%d.%m.%Y')
+df_testgroup['date'] = pd.to_datetime(df_testgroup['date'], format='%d.%m.%Y')
+
+# Checar valores nulos
+df_controlgroup.isnull().sum()
+
+# Checar valores nulos
+df_testgroup.isnull().sum()
+
+# Juntar os datasets
+df_campaign = df_controlgroup.merge(df_testgroup, how='outer').sort_values(['date'])
+df_campaign = df_campaign.reset_index(drop=True)
+print(df_campaign.head())
+
+# Verificar a quantidade de amostras de cada campanha
+print(df_campaign['campaign_name'].value_counts())
+
+# Logo, nosso dataset tem 30 amostras de cada campanha. Agora será iniciado o teste a/b
+
+# Tabela pivot para o sumário dos dados
+colunas_sumario = ['spend', 'impressions', 'reach', 'clicks', 'searches', 'view', 'cart', 'purchase']
+
+df_ab_sumario = df_campaign.pivot_table(values = colunas_sumario, index = 'campaign_name', aggfunc = np.sum)
+print(df_ab_sumario.head())
+
+# Vamos plotar esses valores em gráficos para visualizar melhor essas diferenças de performances entre as campanhas
+
+# Gráfico de colunas na vertical para cada métrica
+for coluna in colunas_sumario:
+    plt.figure(figsize=(5, 3))  # Ajuste o tamanho do gráfico conforme necessário
+    bars = plt.barh(df_ab_sumario.index, df_ab_sumario[coluna])  # Use barh para gráfico de colunas na vertical
+    
+    # Adicione rótulos de valores nas colunas
+    for bar in bars:
+        width = bar.get_width()
+        plt.text(width, bar.get_y() + bar.get_height()/2, f'{int(width)}', va='center', fontsize=10, color='black')
+    
+    # Remova o título do eixo x (rótulo do eixo x)
+    plt.xlabel('')
+    
+    # Remova o título do eixo y (rótulo do eixo y)
+    plt.ylabel('')
+    
+    # Título dos gráficos
+    plt.title(f'Total {coluna} by campaign')
+
+    # Remova a linha ao redor do gráfico
+    plt.box(False)
+    
+    plt.tight_layout()  # Para evitar que os rótulos se sobreponham
+    plt.show()
+
+# Calcular a taxa de conversão de cada campanha
+cart_test = df_campaign[df_campaign['campaign_name']=='Test Campaign']
+cart_control = df_campaign[df_campaign['campaign_name']=='Control Campaign']
+total_cart_test = cart_test['cart'].sum()
+total_cart_control = cart_control['cart'].sum()
+
+total_purchase_test = cart_test['purchase'].sum()
+total_purchase_control = cart_control['purchase'].sum()
+
+conversao_test = (total_purchase_test / total_cart_test)*100
+conversao_control = (total_purchase_control / total_cart_control)*100
+
+print(f"A conversão da campanha de teste foi de {conversao_test:.2f}% e a campanha de controle obteve uma conversão de {conversao_control:.2f}%.")
